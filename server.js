@@ -1,16 +1,27 @@
 const fs = require("fs");
 const express = require("express");
 const cors = require("cors");
-const { createServer } = require("http");
+const https = require("https"); // Изменено с createServer на прямой импорт https
 const { Server } = require("socket.io");
 
 const app = express();
-const PORT = 4000;
+const PORT = 4000; // Стандартный порт для HTTPS
 
-// Настройка CORS для Express
+// Пути к SSL-сертификатам (замените на свои)
+const privateKey = fs.readFileSync('/etc/letsencrypt/live/xn--80afgats3a8d.xn--p1ai/privkey.pem', 'utf8');
+const certificate = fs.readFileSync('/etc/letsencrypt/live/xn--80afgats3a8d.xn--p1ai/cert.pem', 'utf8');
+const ca = fs.readFileSync('/etc/letsencrypt/live/xn--80afgats3a8d.xn--p1ai/chain.pem', 'utf8');
+
+const credentials = {
+  key: privateKey,
+  cert: certificate,
+  ca: ca
+};
+
+// Настройка CORS для Express (обновите origin на HTTPS)
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "https://xn--80afgats3a8d.xn--p1ai", // Изменено на HTTPS
     methods: ["GET", "POST", "OPTIONS"],
     credentials: true,
   })
@@ -21,38 +32,17 @@ app.use(express.json());
 // Данные сообщений
 const messages = JSON.parse(fs.readFileSync("./messages.json", "utf-8"));
 
-// Роут для получения сообщений
+// Роуты остаются без изменений
 app.get("/", (req, res) => {
   res.status(200).json(messages);
 });
+
 app.post("/", (req, res) => {
   const message = req.body;
   // Перезаписываем БД
-  function getFormattedDate() {
-    const now = new Date();
-
-    // Получаем день, месяц и год (двузначный)
-    const day = String(now.getDate()).padStart(2, "0");
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const year = String(now.getFullYear()).slice(-2);
-
-    // Получаем день недели (сокращенный до 3 букв)
-    const daysOfWeek = ["Вск", "Пнд", "Втр", "Срд", "Чтв", "Птн", "Сбт"];
-    const dayOfWeek = daysOfWeek[now.getDay()];
-
-    // Получаем часы, минуты и секунды
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
-
-    // Формируем строку
-    return `${day}/${month}/${year} ${dayOfWeek} ${hours}:${minutes}:${seconds}`;
-  }
-
   const newMessage = {
     ...message,
     id: messages.length,
-    date: getFormattedDate(),
   };
 
   messages.push(newMessage);
@@ -66,18 +56,18 @@ app.post("/", (req, res) => {
   res.send(newMessage);
 });
 
-// Создаем HTTP-сервер
-const httpServer = createServer(app);
+// Создаем HTTPS-сервер
+const httpsServer = https.createServer(credentials, app);
 
-// Настройка Socket.IO с CORS
-const io = new Server(httpServer, {
+// Настройка Socket.IO с CORS (обновите origin на HTTPS)
+const io = new Server(httpsServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "https://xn--80afgats3a8d.xn--p1ai", // Изменено на HTTPS
     methods: ["GET", "POST"],
   },
 });
 
-// Обработка подключений Socket.IO
+// Обработка подключений Socket.IO (без изменений)
 io.on("connection", (socket) => {
   console.log(`Новое подключение: ${socket.id}`);
 
@@ -95,7 +85,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// Запуск сервера
-httpServer.listen(PORT, () => {
-  console.log(`Сервер запущен на http://localhost:${PORT}`);
+// Запуск HTTPS-сервера
+httpsServer.listen(PORT, () => {
+  console.log(`Сервер запущен на https://localhost:${PORT}`);
 });
