@@ -45,6 +45,7 @@ app.post("/", (req, res) => {
     id: messages.length,
   };
 
+  messages.shift();
   messages.push(newMessage);
   fs.writeFile("./messages.json", JSON.stringify(messages), (err) => {
     // Checking for errors
